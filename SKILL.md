@@ -26,6 +26,10 @@ Recognize language-appropriate comment syntax for these markers (case-sensitive)
 
 Examples include `//REVIEW: ...`, `# TODO: CR: ...`, `//SEEN`, and
 `<!-- REVIEW:SEEN -->`. Accept equivalent comment forms for the file's language.
+For an instruction marker, the text after the marker on that line and immediately
+following continuation comment lines form the instruction body. If the request
+includes a path or glob, restrict discovery to that scope; otherwise scan the
+repository.
 Do not match marker-looking text in strings, templates, generated content, or
 documentation examples. If syntax context is uncertain, leave it untouched and
 ask or report the uncertainty.
