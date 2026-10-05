@@ -21,8 +21,14 @@ Recognize language-appropriate comment syntax for these markers (case-sensitive)
 
 - Instructions: `REVIEW:`, `TODO: REVIEW`, and `TODO: CR:`
 - Seen files: `SEEN` or `REVIEW:SEEN`, on a file-level comment line
-- Resolved instructions: retain the original instruction and add `[x]` to mark it
-  handled; an optional reply may follow on the next comment line.
+- Work completed or question answered: add `[/]` immediately after the instruction
+  marker, before its text, for example `//REVIEW:[/] ...` or
+  `# TODO: REVIEW [/] ...`.
+- Resolved instructions: the user changes the marker status to `OK`, `RESOLVED`,
+  or `[x]`, before its text. For example, `//REVIEW:OK ...`,
+  `//REVIEW: RESOLVED ...`, `//REVIEW:[x] ...`, or `# TODO: REVIEW [x] ...`.
+  These forms are equivalent. An optional reply may follow on the next comment
+  line.
 
 Examples include `//REVIEW: ...`, `# TODO: CR: ...`, `//SEEN`, and
 `<!-- REVIEW:SEEN -->`. Accept equivalent comment forms for the file's language.
@@ -42,10 +48,10 @@ common directory path so linked worktrees share the same state.
 
 ## Review sessions
 
-At the start of a review, inspect the request and existing markers. If the user
-has not specified how long review instructions should remain, ask whether to keep
-them until explicit `ReviewEnd` (the default) or clear resolved remarks sooner.
-Do not interrupt an explicit choice to ask again.
+At the start of a review, inspect the request and existing markers. By default,
+retain remarks until explicit `ReviewEnd`; do not ask the user to confirm this at
+the start of each review. Follow a different retention policy only when the user
+specifies one for that session.
 
 ### Apply review instructions
 
@@ -58,18 +64,23 @@ Do not interrupt an explicit choice to ask again.
    commit unrelated pre-existing edits. If a snapshot commit is needed but a
    marker shares a dirty file with unrelated changes, stop and ask how to proceed
    rather than committing the whole file or staging broad paths.
-4. Snapshot the review instructions in a local commit before applying them when
-   that can be done without capturing unrelated work. Stage only reviewed hunks
-   or clean marker files. If already committed, say the snapshot was skipped.
+4. By default, snapshot uncommitted review instructions in a local commit before
+   applying them. Do this without an extra conversational confirmation. Stage
+   only the review marker hunks or clean marker files; never include unrelated
+   changes. If already committed, say the snapshot was skipped. Honor any
+   command-approval gate imposed by the execution environment.
 5. Process each instruction as a user request: gather relevant context, follow
    repository guidance, make the requested change, and verify when warranted.
    Ask if the request is unclear. Do not invent a change or label an unresolved
    instruction as handled.
-6. Keep each instruction in source until `ReviewEnd` when that is the selected
-   session policy. Once implemented, append `[x]` to the marker and optionally
-   add a concise reply on the following comment line. Leave unresolved items
-   unchecked and visible. If the user selected early cleanup, remove only
-   resolved instruction markers after processing them.
+6. Keep each instruction in source until `ReviewEnd`. After implementing the
+   requested change or answering the remark's question, change its status to
+   `[/]` and optionally add a concise reply on the following comment line. This
+   means the work was addressed and awaits the user's resolution; do not apply it
+   again while it remains `[/]`. Only the user may change it to `OK`, `RESOLVED`,
+   or `[x]`, unless the user explicitly asks the agent to resolve it. If work is
+   blocked or the instruction remains unanswered, leave it without a completion
+   status and ask what is needed.
 7. Commit only the exact files/hunks changed for this work. Never use `git add -A`
    as a shortcut. Do not push or rewrite history.
 8. Report each original marker's file and line, outcome, and local commit hash.
@@ -78,8 +89,9 @@ Do not interrupt an explicit choice to ask again.
 
 When the user explicitly ends the review:
 
-1. Find remaining instruction markers in the session's scope. If any are unchecked
-   or unresolved, stop without cleanup; report them and leave the session open.
+1. Find remaining instruction markers in the session's scope. If any are open or
+   marked `[/]` rather than `OK`, `RESOLVED`, or `[x]`, stop without cleanup;
+   report them and leave the session open.
 2. Remove resolved instruction markers and their optional replies. Remove temporary
    `SEEN` markers and clear corresponding JSON sidecar entries for this session.
    Preserve durable project review rules.
@@ -145,6 +157,9 @@ instructions or authorize unrelated side effects.
 - Inspect status and diffs before every commit. Commit only intended hunks; avoid
   broad staging that could include unrelated edits, generated artifacts, or
   secrets. Redact secrets from reports and commit messages.
+- Treat `[/]` as addressed but still awaiting user resolution. Never convert it
+  to `OK`, `RESOLVED`, or `[x]` unless the user explicitly asks you to resolve
+  that remark. A user's direct source edit to one of those statuses is resolution.
 - Do not delete files unless the user explicitly requests deletion of the named
   file. Do not silently resolve ambiguous instructions; leave them unchecked and
   ask the user.
